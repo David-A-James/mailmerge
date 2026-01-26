@@ -142,6 +142,13 @@ class mailmerge extends \rcube_plugin
 
             return $param;
         });
+
+        $this->add_hook("message_saved", function($param) {
+//            $this->log->debug($param);
+        });
+        $this->add_hook("message_ready", function($param) {
+            $this->log->debug($param);
+        });
     }
 
     public function mailmerge_action(): void
@@ -192,9 +199,20 @@ class mailmerge extends \rcube_plugin
         @set_time_limit(360);
 
         foreach ($dict as &$line) {
-            $mime = new Mail_mime();
+            $mime = new Mail_mime(["html_charset" => "UTF-8", "text_charset" => "UTF-8", "head_charset" => "UTF-8", "text_encoding" => "7bit"]);
 
             $identity = $this->rc->user->get_identity($input["_from"]);
+
+            // $mime->headers(["X-Mozilla-Status" => "0800", "X-Mozilla-Status2" => "00000000"]);
+
+            $from = $identity['name'] . ' <' . $identity['email'] . '>';
+            $mime->setFrom($from);
+
+            $mime->setSubject($this->replace_vars($input["_subject"], $line));
+
+            foreach ($input["_to"] as $recipient) {
+                $mime->addTo($this->replace_vars($recipient, $line));
+            }
 
             $mime->headers([
                 'Date' => $this->rc->user_date(),
@@ -206,24 +224,18 @@ class mailmerge extends \rcube_plugin
                 $mime->headers(["Organization" => $identity['organization']]);
             }
 
-            $from = $identity['name'] . ' <' . $identity['email'] . '>';
-            $mime->setFrom($from);
-
-            $mime->setSubject($this->replace_vars($input["_subject"], $line));
-
-            foreach ($input["_to"] as $recipient) {
-                $mime->addTo($this->replace_vars($recipient, $line));
-            }
             if (count($input["_cc"]) > 0) {
                 foreach ($input["_cc"] as $recipient) {
                     $mime->addCc($this->replace_vars($recipient, $line));
                 }
             }
+
             if (count($input["_bcc"]) > 0) {
                 foreach ($input["_bcc"] as $recipient) {
                     $mime->addBcc($this->replace_vars($recipient, $line));
                 }
             }
+
             if (count($input["_replyto"]) > 0) {
                 $rto = array_map(function ($rr) use ($line) {
                     $this->replace_vars($rr, $line);
@@ -234,6 +246,7 @@ class mailmerge extends \rcube_plugin
                     "Mail-Reply-To" => $rto
                 ]);
             }
+
             if (count($input["_followupto"]) > 0) {
                 $mime->headers(["Mail-Followup-To" => array_map(function ($rr) use ($line) {
                     $this->replace_vars($rr, $line);
@@ -243,6 +256,7 @@ class mailmerge extends \rcube_plugin
             $this->log->debug("begin message");
             $message = $this->replace_vars($input["message"], $line);
             $this->log->debug("end message");
+
             if ($input["_mode"] == self::MODE_HTML) {
                 $mime->setHTMLBody($message);
                 $mime->setTXTBody($this->rc->html2text($message));
@@ -459,7 +473,7 @@ class mailmerge extends \rcube_plugin
 
     private function filter_callback_split(string $value): array
     {
-        return explode(",", $value);
+        return array_filter(explode(",", $value));
     }
 
     private function filter_callback_mode(string $value): string

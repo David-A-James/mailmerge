@@ -62,7 +62,7 @@ function mailmerge() {
     formData.append("_dsn", document.querySelector("[name=_dsn]").checked);
     formData.append("_priority", document.querySelector("[name=_priority]").value);
 
-    console.log(formData)
+    // console.log(formData)
 
     $.ajax({
         type: 'POST', url: rcmail.url("plugin.mailmerge"), data: formData,
@@ -90,4 +90,12 @@ rcmail.addEventListener("plugin.mailmerge.folders", function (data) {
             selected: folder === drafts
         }))
     })
+})
+
+rcmail.addEventListener("beforesavedraft", function (...params) {
+    console.log(params)
+})
+
+rcmail.addEventListener("aftersavedraft", function (...params) {
+    console.log(params)
 })

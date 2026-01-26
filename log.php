@@ -42,7 +42,7 @@ namespace bennetcc\mailmerge {
                 $bt = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1];
                 $func = $bt["function"];
                 $cls = $bt["class"];
-                if ($cls == "bennetcc\Log") {
+                if ($cls == "bennetcc\mailmerge\Log") {
                     $bt = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3)[2];
                     $func = $bt["function"];
                     $cls = $bt["class"];
@@ -51,11 +51,11 @@ namespace bennetcc\mailmerge {
                     $line = print_r($line, true);
                 }
                 $llines = explode(PHP_EOL, $line);
-                \rcmail::write_log($this->file, "[" . $this->app_prefix . "/" . $prefix . "] {" . $cls . "::" . $func . "} " . $llines[0]);
+                \rcmail::write_log($this->file, "[" . $prefix . "] {" . $cls . "::" . $func . "} " . $llines[0]);
                 unset($llines[0]);
                 if (count($llines) > 0) {
                     foreach ($llines as $l) {
-                        \rcmail::write_log($this->file, str_pad("...", strlen("[" . $this->app_prefix . "/" . $prefix . "] "), " ", STR_PAD_BOTH) . "{" . $cls . "::" . $func . "} " . $l);
+                        \rcmail::write_log($this->file, str_pad("...", strlen("[" . $prefix . "] "), " ", STR_PAD_BOTH) . "{" . $cls . "::" . $func . "} " . $l);
                     }
                 }
             }
