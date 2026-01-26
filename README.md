@@ -6,6 +6,16 @@ Inspired by: https://addons.thunderbird.net/en-US/thunderbird/addon/mail-merge/
 
 ![img_1.png](img_1.png)
 
+To see the option in compose view users first need to enabled it und Composing 
+Options and Advanced Options. This to prevent users, that in theory should be able
+the option, to be directly pointed to it, as missuse of this plugin may generate
+SPAM and/or otherwise unwanted messages being sent.
+
+![img_2.png](img_2.png)
+
+Users can also be excluded entirely with the exclude options in the `config.inc.php`. 
+See `config.inc.php.dist` for reference.
+
 ## Supported Variable replacements
 `{{name}}`
 The variable will be replaced by the value of the field name, e.g.:
