@@ -75,7 +75,7 @@ class mailmerge extends \rcube_plugin
                     \html::div('col-6', $sselect->show(["id" => "mailmergesep", "class" => "custom-select form-control pretty-select"])));
 
                 $eselect = new html_select(["id" => "mailmergeencl"]);
-                $eselect->add(["\" (Doube Quotes)", "' (Single Quote)"], ["\"", "'"]);
+                $eselect->add(["\" (Double Quotes)", "' (Single Quote)"], ["\"", "'"]);
 
                 $enclosed = html::div('form-group row',
                     html::label(['for' => 'mailmergeencl', 'class' => 'col-form-label col-6'], rcube::Q("Field Enclosure"))
