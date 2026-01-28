@@ -177,6 +177,7 @@ class mailmerge extends \rcube_plugin
                 }
                 return $param;
             }
+            return null;
         });
     }
 
