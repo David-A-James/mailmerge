@@ -183,6 +183,12 @@ class mailmerge extends \rcube_plugin
         $csv_data = [];
         // Read CSV
         if (($handle = fopen($_FILES['csv']['tmp_name'], "r")) !== FALSE) {
+            $bom = fread($handle, 3); // Read first 3 bytes
+            // Compare with UTF-8 BOM bytes (0xEF, 0xBB, 0xBF)
+            if($bom !== "\xEF\xBB\xBF") {
+                fseek($handle, 0);
+            }
+
             while (($data = fgetcsv($handle, null, $input["_separator"], $input["_enclosure"])) !== FALSE) {
                 $csv_data[] = $data;
             }
