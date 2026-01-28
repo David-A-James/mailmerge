@@ -182,6 +182,7 @@ class mailmerge extends \rcube_plugin
 
     public function mailmerge_action(): void
     {
+
         $input = filter_input_array(INPUT_POST, [
             "_to" => ['filter' => FILTER_CALLBACK, 'options' => [$this, 'filter_callback_split']],
             "_cc" => ['filter' => FILTER_CALLBACK, 'options' => [$this, 'filter_callback_split']],
@@ -374,6 +375,36 @@ class mailmerge extends \rcube_plugin
             }
             // endregion
 
+            $draft_info = [];
+
+            // Note: We ignore <UID>.<PART> forwards/replies here
+            if (
+                !empty($COMPOSE['reply_uid'])
+                && ($uid = $COMPOSE['reply_uid'])
+                && !preg_match('/^\d+\.[0-9.]+$/', $uid)
+            ) {
+                $draft_info['type']   = 'reply';
+                $draft_info['uid']    = $uid;
+                $draft_info['folder'] = $COMPOSE['mailbox'];
+            }
+            else if (
+                !empty($COMPOSE['forward_uid'])
+                && ($uid = rcube_imap_generic::compressMessageSet($COMPOSE['forward_uid']))
+                && !preg_match('/^\d+[0-9.]+$/', $uid)
+            ) {
+                $draft_info['type']   = 'forward';
+                $draft_info['uid']    = $uid;
+                $draft_info['folder'] = $COMPOSE['mailbox'];
+            }
+
+            if ($input["_dsn"]) {
+                $draft_info['dsn'] = 'on';
+            }
+
+            if (!empty($draft_info)) {
+                $mime->headers(['X-Draft-Info' => rcmail_sendmail::draftinfo_encode($draft_info)]);
+            }
+
             $msg_str = $mime->getMessage();
             if($this->rc->storage->save_message($input["_folder"], $msg_str)) {
                 $ctr++;
@@ -416,6 +447,25 @@ class mailmerge extends \rcube_plugin
 
             $COMPOSE = [];
 
+            if ($draft_info = $MESSAGE->headers->get('x-draft-info')) {
+                // get reply_uid/forward_uid to flag the original message when sending
+                $info = rcmail_sendmail::draftinfo_decode($draft_info);
+
+                if (!empty($info['type'])) {
+                    if ($info['type'] == 'reply') {
+                        $COMPOSE['reply_uid'] = $info['uid'];
+                    }
+                    else if ($info['type'] == 'forward') {
+                        $COMPOSE['forward_uid'] = $info['uid'];
+                    }
+                }
+
+                if (!empty($info['dsn']) && $info['dsn'] === 'on') {
+                    $options['dsn_enabled'] = true;
+                }
+
+                $COMPOSE['mailbox'] = $info['folder'] ?? null;
+            }
 
             $this->log->debug("processing message $MESSAGE->uid {$MESSAGE->headers->messageID} to {$MESSAGE->headers->to}");
 

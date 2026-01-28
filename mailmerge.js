@@ -55,12 +55,13 @@ function mailmerge() {
         return
     }
 
-    compose_id = $("[name='_id']", form).val()
-    formData.append("_compose_id", compose_id)
+    formData.append("_compose_id", rcmail.env.compose_id)
 
     formData.append("_mdn", document.querySelector("[name=_mdn]").checked);
     formData.append("_dsn", document.querySelector("[name=_dsn]").checked);
     formData.append("_priority", document.querySelector("[name=_priority]").value);
+
+    formData.append("_reply_msgid", rcmail.env.reply_msgid);
 
     // console.log(formData)
 
