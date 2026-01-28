@@ -80,10 +80,18 @@ function mailmerge() {
 
 rcmail.addEventListener('init', function(evt) {
     console.log(evt)
-    rcmail.register_command("plugin.mailmerge", mailmerge, true)
-    rcmail.env.compose_commands.push("plugin.mailmerge")
-
-    rcmail.http_get("plugin.mailmerge.get-folders")
+    if (rcmail.env.compose_commands) {
+        rcmail.register_command("plugin.mailmerge", mailmerge, true)
+        rcmail.env.compose_commands.push("plugin.mailmerge")
+        rcmail.http_get("plugin.mailmerge.get-folders")
+    } else {
+        document.querySelector("#mailmerge_sendunsent").addEventListener("click", function (){
+            console.log(rcmail.env.mailmerge_currentfolder);
+            rcmail.http_post("plugin.mailmerge.send-unsent",
+                { _mbox: rcmail.env.mailmerge_currentmbox, _search: rcmail.env.search_request},
+                rcmail.set_busy(true, 'loading'))
+        });
+    }
 });
 
 rcmail.addEventListener("plugin.mailmerge.folders", function (data) {
@@ -103,4 +111,29 @@ rcmail.addEventListener("beforesavedraft", function (...params) {
 
 rcmail.addEventListener("aftersavedraft", function (...params) {
     console.log(params)
+})
+
+rcmail.addEventListener("listupdate",
+    /**
+     *
+     * @param {{folder:string, list:rcube_list_widget, rowcount:number, event:string}} params
+     */
+    function (params) {
+    console.log("listupdate", params);
+
+    const path = params.folder.split(rcmail.env.delimiter);
+    rcmail.env.mailmerge_currentmbox = params.folder;
+
+    document.querySelector("#mailmerge_sendunsent").classList.add("hidden", "disabled");
+
+    path.forEach((subpath, i) => {
+        const mbox = path.slice(0, i + 1).join(rcmail.env.delimiter)
+        if (mbox === rcmail.env.drafts_mailbox) {
+            document.querySelector("#mailmerge_sendunsent").classList.remove("hidden");
+            if (rcmail.env.search_request === null || rcmail.env.search_scope === "base") {
+                document.querySelector("#mailmerge_sendunsent").classList.remove("disabled");
+            }
+        }
+    })
+
 })

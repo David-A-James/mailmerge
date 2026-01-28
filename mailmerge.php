@@ -60,9 +60,10 @@ class mailmerge extends \rcube_plugin
 
         $this->register_action('plugin.mailmerge', [$this, 'mailmerge_action']);
         $this->register_action('plugin.mailmerge.get-folders', [$this, 'get_folders']);
+        $this->register_action('plugin.mailmerge.send-unsent', [$this, 'send_unsent']);
 
         $this->add_hook("ready", function ($param) {
-            $this->log->debug('ready', $param);
+//            $this->log->debug('ready', $param);
             $prefs = $this->rc->user->get_prefs();
             if ($param['task'] == 'mail' && $param['action'] === 'compose' && $prefs[__("enabled")]) {
 
@@ -113,6 +114,8 @@ class mailmerge extends \rcube_plugin
 
                 $this->api->add_content(\html::div(["style" => "padding-bottom: 1rem; margin: 0", "class" => "file-upload"],
                     $header . $separator . $enclosed . $folders . $file), 'composeoptions');
+            }
+            if ($param['task'] == 'mail' && $prefs[__("enabled")]) {
                 $this->include_script('mailmerge.js');
             }
         });
@@ -148,6 +151,32 @@ class mailmerge extends \rcube_plugin
         });
         $this->add_hook("message_ready", function($param) {
             $this->log->debug($param);
+        });
+
+        $this->add_hook("template_container", function ($param) {
+            $folder = $this->rc->storage?->get_folder();
+            $delimiter = $this->rc->storage?->get_hierarchy_delimiter();
+            if ($folder && $delimiter) {
+                $path = explode($delimiter, $folder);
+                $under_drafts = false;
+                foreach ($path as $i => $subpath) {
+                    $slice = array_slice($path, 0, $i + 1);
+                    $f = implode($delimiter, $slice);
+                    $folder_info = $this->rc->storage?->folder_info($f);
+                    if (in_array("\\Drafts", $folder_info["attributes"]) && $folder_info["special"]) {
+                        $under_drafts = true;
+                        break;
+                    }
+                }
+
+                if ($param['id'] === 'listcontrols') {
+                    //<a href="#select" class="select disabled" data-popup="listselect-menu" data-toggle-button="list-toggle-button" title="<roundcube:label name="select" />"><span class="inner"><roundcube:label name="select" /></span></a>
+                    $param['content'] = html::a(["href" => "#sendunsent", "id" => "mailmerge_sendunsent",
+                        "class" => "sendunsent send disabled" . ($under_drafts ? "" : " hidden"), "title" => "Send Unsent"],
+                        html::span(["class" => "inner"], "Send Unsent"));
+                }
+                return $param;
+            }
         });
     }
 
@@ -360,6 +389,91 @@ class mailmerge extends \rcube_plugin
             'folders' => $this->rc->storage->list_folders(),
             'special_folders' => $this->rc->storage->get_special_folders()
         ]);
+    }
+
+    public function send_unsent(array|null $param = null): void
+    {
+        $mbox = rcube_utils::get_input_string('_mbox', rcube_utils::INPUT_POST);
+        $search = rcube_utils::get_input_string('_search', rcube_utils::INPUT_POST);
+
+        $this->log->debug(json_encode([$mbox, $search]));
+        $this->log->debug(json_encode($this->rc->storage->get_search_set()));
+
+        $messages = $this->rc->storage->list_messages($mbox);
+        $this->log->debug(json_encode($messages));
+
+        $success = 0;
+        $fail = 0;
+
+        @set_time_limit(360);
+
+        $this->register_handler("message_send_error", function ($param) {
+            $this->log->error("message_send_error: " . json_encode($param));
+        });
+
+        foreach ($messages as $m) {
+            $MESSAGE = new rcube_message($m->uid, $m->folder);
+
+            $COMPOSE = [];
+
+
+            $this->log->debug("processing message $MESSAGE->uid {$MESSAGE->headers->messageID} to {$MESSAGE->headers->to}");
+
+            $SENDMAIL = new rcmail_sendmail($COMPOSE, ["charset" => $MESSAGE->headers->charset ?? RCUBE_CHARSET]);
+
+            $to = $SENDMAIL->email_input_format($MESSAGE->headers->to);
+            $ua = $this->rc->config->get('useragent');
+
+            $SENDMAIL->options['dsn_enabled'] = false; //TODO: get from draft info
+            $SENDMAIL->options['from'] = $MESSAGE->sender["mailto"];
+            $SENDMAIL->options['mailto'] = empty($to) ? "undisclosed-recipients:;" : $to;
+
+            $headers = [
+                'Received' => $SENDMAIL->header_received(),
+                'Date' => $this->rc->user_date(),
+                'From' => $MESSAGE->headers->from,
+                'To' => empty($to) ? "undisclosed-recipients:;" : $to,
+                'Cc' => $MESSAGE->headers->cc,
+                'Bcc' => $MESSAGE->headers->bcc,
+                'Subject' => $MESSAGE->subject,
+                'Reply-To' => $SENDMAIL->email_input_format($MESSAGE->headers->replyto),
+                'Mail-Reply-To' => $SENDMAIL->email_input_format($MESSAGE->headers->replyto),
+                'Mail-Followup-To' => $SENDMAIL->email_input_format($MESSAGE->headers->followupto ?? null),
+                'In-Reply-To' => $MESSAGE->headers->in_reply_to,
+                'References' => $MESSAGE->headers->references,
+                'User-Agent' => empty($ua) ?: $ua . "+mailmerge",
+                'Message-ID' => $MESSAGE->headers->messageID,
+                'X-Sender' => $MESSAGE->sender["mailto"],
+                'Disposition-Notification-To' => $MESSAGE->headers->mdn_to,
+                'X-Priority' => $MESSAGE->headers->priority,
+                'Organization' => $MESSAGE->headers->organization ?? null
+            ];
+
+            // remove empty headers
+            $headers = array_filter($headers);
+
+            $isHtml = $MESSAGE->has_html_part(false, $part);
+
+            $mime_message = $SENDMAIL->create_message($headers,
+                $isHtml ? $MESSAGE->get_part_body($part->mime_id) : $MESSAGE->first_text_part(),
+                $isHtml, $MESSAGE->attachments);
+
+//            $this->log->debug($mime_message->getMessage());
+
+            if ($SENDMAIL->deliver_message($mime_message, false)) {
+                $this->log->debug("delivered message");
+                $this->rc->storage->delete_message($MESSAGE->uid, $MESSAGE->folder);
+                $SENDMAIL->save_message($mime_message);
+                $success++;
+            } else {
+                $fail++;
+            }
+            unset($SENDMAIL, $MESSAGE, $part);
+        }
+
+        $this->rc->output->show_message("sent $success messages. $fail failed", $fail === 0 ? "confirmation" : "notice");
+
+//        $this->rc->storage->se
     }
 
     private function replace_vars(string|null $str, array $dict): string|null
