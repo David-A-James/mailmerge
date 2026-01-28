@@ -64,8 +64,13 @@ function mailmerge() {
 
     // console.log(formData)
 
+    const lock = rcmail.set_busy(true, 'loading');
+    formData.append("_unlock", lock);
+    formData.append("_remote", 1);
+
     $.ajax({
         type: 'POST', url: rcmail.url("plugin.mailmerge"), data: formData,
+        dataType: "json",
         contentType: false,
         processData: false,
         success: function(data) { rcmail.http_response(data) },

@@ -204,6 +204,8 @@ class mailmerge extends \rcube_plugin
 
         @set_time_limit(360);
 
+        $ctr = 0;
+
         foreach ($dict as &$line) {
             $mime = new Mail_mime(["html_charset" => "UTF-8", "text_charset" => "UTF-8", "head_charset" => "UTF-8", "text_encoding" => "7bit"]);
 
@@ -344,8 +346,12 @@ class mailmerge extends \rcube_plugin
             // endregion
 
             $msg_str = $mime->getMessage();
-            $this->rc->storage->save_message($input["_folder"], $msg_str);
+            if($this->rc->storage->save_message($input["_folder"], $msg_str)) {
+                $ctr++;
+            }
         }
+
+        $this->rc->output->show_message("successfully saved $ctr messages to {$input["_folder"]}", "confirmation");
     }
 
     public function get_folders(): void
