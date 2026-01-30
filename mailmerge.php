@@ -65,58 +65,11 @@ class mailmerge extends \rcube_plugin
         $this->add_hook("ready", function ($param) {
 //            $this->log->debug('ready', $param);
             $prefs = $this->rc->user->get_prefs();
-            if ($param['task'] == 'mail' && $param['action'] === 'compose' && $prefs[__("enabled")]) {
-
-                $header = \html::div('row', \html::div('col-12', \html::span("font-weight-bold", "Mail merge options")));
-
-                $sselect = new html_select(["id" => "mailmergesep"]);
-                $sselect->add([", (Comma)", "; (Semicolon)", "| (Pipe)", "Tab"], [",", ";", "|", "tab"]);
-                $separator = \html::div("form-group row",
-                    \html::label(['for' => 'mailmergesep', 'class' => 'col-form-label col-6'], rcube::Q("Separator")) .
-                    \html::div('col-6', $sselect->show(["id" => "mailmergesep", "class" => "custom-select form-control pretty-select"])));
-
-                $eselect = new html_select(["id" => "mailmergeencl"]);
-                $eselect->add(["\" (Double Quotes)", "' (Single Quote)"], ["\"", "'"]);
-
-                $enclosed = html::div('form-group row',
-                    html::label(['for' => 'mailmergeencl', 'class' => 'col-form-label col-6'], rcube::Q("Field Enclosure"))
-                    . html::div('form-check col-6',
-                        $eselect->show(["id" => "mailmergeencl", "class" => "custom-select form-control pretty-select"])
-                    )
-                );
-
-                $file = html::div('form-group form-check row',
-                    \html::div("col-6", (new html_inputfield(["type" => "file"]))->show(null, ["id" => "mailmergefile"])) .
-                    \html::div("col-6", (new html_button([
-                        'type' => 'button',
-                        'command' => 'plugin.mailmerge',
-                        'onclick' => "rcmail.command('plugin.mailmerge', '', event.target, event)",
-                        'class' => 'button mailmerge mx-4',
-                        'title' => 'Mailmerge',
-                        'label' => 'Mailmerge',
-                        'domain' => $this->ID,
-                        'width' => 32,
-                        'height' => 32,
-                        'aria-owns' => 'mailmerge',
-                        'aria-haspopup' => 'false',
-                        'aria-expanded' => 'false',
-                    ]))->show(rcube::Q('Mailmerge')))
-                );
-
-                $fselect = new html_select(["id" => "mailmergefolder"]);
-
-                $folders = html::div('form-group row',
-                    html::label(['for' => 'mailmergefolder', 'class' => 'col-form-label col-6'], rcube::Q("Save to Folder"))
-                    . html::div('form-check col-6',
-                        $fselect->show(["id" => "mailmergefolder", "class" => "custom-select form-control pretty-select"])
-                    )
-                );
-
-                $this->api->add_content(\html::div(["style" => "padding-bottom: 1rem; margin: 0", "class" => "file-upload"],
-                    $header . $separator . $enclosed . $folders . $file), 'composeoptions');
-            }
             if ($param['task'] == 'mail' && $prefs[__("enabled")]) {
                 $this->include_script('mailmerge.js');
+                if ($param['action'] === 'compose') {
+                    $this->compose_ui();
+                }
             }
         });
 
@@ -146,17 +99,12 @@ class mailmerge extends \rcube_plugin
             return $param;
         });
 
-        $this->add_hook("message_saved", function($param) {
-//            $this->log->debug($param);
-        });
-        $this->add_hook("message_ready", function($param) {
-            $this->log->debug($param);
-        });
-
         $this->add_hook("template_container", function ($param) {
             $folder = $this->rc->storage?->get_folder();
             $delimiter = $this->rc->storage?->get_hierarchy_delimiter();
-            if ($folder && $delimiter) {
+            $prefs = $this->rc->user->get_prefs();
+
+            if ($prefs[__("enabled")] && $folder && $delimiter) {
                 $path = explode($delimiter, $folder);
                 $under_drafts = false;
                 foreach ($path as $i => $subpath) {
@@ -179,6 +127,79 @@ class mailmerge extends \rcube_plugin
             }
             return null;
         });
+    }
+
+    private function compose_ui() {
+        $header = \html::div('row', \html::div('col-12', \html::span("font-weight-bold", "Mail merge options")));
+
+        // Separator
+        $sselect = new html_select(["id" => "mailmergesep"]);
+        $sselect->add([", (Comma)", "; (Semicolon)", "| (Pipe)", "Tab"], [",", ";", "|", "tab"]);
+        $separator = \html::div("form-group row",
+            \html::label(['for' => 'mailmergesep', 'class' => 'col-form-label col-6'], rcube::Q("Separator")) .
+            \html::div('col-6', $sselect->show()));
+
+
+        // Enclosure
+        $eselect = new html_select(["id" => "mailmergeencl"]);
+        $eselect->add(["\" (Double Quotes)", "' (Single Quote)"], ["\"", "'"]);
+
+        $enclosed = html::div('form-group row',
+            html::label(['for' => 'mailmergeencl', 'class' => 'col-form-label col-6'], rcube::Q("Field Enclosure"))
+            . html::div('form-check col-6',
+                $eselect->show()
+            )
+        );
+
+        // Encoding
+        $fencselect = new html_select(["id" => "mailmergefenc"]);
+        $fencselect->add(mb_list_encodings());
+        $encoding = html::div('form-group row',
+            html::label(['for' => 'mailmergefenc', 'class' => 'col-form-label col-6'], rcube::Q("File Encoding"))
+            . html::div('form-check col-6',
+                $fencselect->show(["UTF-8"])
+            )
+        );
+
+        // Behaviour
+        $bselect = new html_select(["id" => "mailmergebehav"]);
+        $bselect->add(["Generate All", "Generate only with at least one Recipient (To, CC or Bcc)", "Generate only with To", "Skip on any empty recipient placeholder"], ["all", "any", "to", "empty"]);
+        $behavior = html::div('form-group row',
+            html::label(['for' => 'mailmergebehav', 'class' => 'col-form-label col-6'], rcube::Q("Generation Behavior"))
+            . html::div('form-check col-6',
+                $bselect->show(["all"])
+            )
+        );
+
+        $file = html::div('form-group form-check row',
+            \html::div("col-6", (new html_inputfield(["type" => "file"]))->show(null, ["id" => "mailmergefile"])) .
+            \html::div("col-6", (new html_button([
+                'type' => 'button',
+                'command' => 'plugin.mailmerge',
+                'onclick' => "rcmail.command('plugin.mailmerge', '', event.target, event)",
+                'class' => 'button mailmerge mx-4',
+                'title' => 'Mailmerge',
+                'label' => 'Mailmerge',
+                'domain' => $this->ID,
+                'width' => 32,
+                'height' => 32,
+                'aria-owns' => 'mailmerge',
+                'aria-haspopup' => 'false',
+                'aria-expanded' => 'false',
+            ]))->show(rcube::Q('Mailmerge')))
+        );
+
+        $fselect = new html_select(["id" => "mailmergefolder"]);
+
+        $folders = html::div('form-group row',
+            html::label(['for' => 'mailmergefolder', 'class' => 'col-form-label col-6'], rcube::Q("Save to Folder"))
+            . html::div('form-check col-6',
+                $fselect->show(["id" => "mailmergefolder", "class" => "custom-select form-control pretty-select"])
+            )
+        );
+
+        $this->api->add_content(\html::div(["style" => "padding-bottom: 1rem; margin: 0", "class" => "file-upload"],
+            $header . $separator . $enclosed . $folders . $encoding . $behavior . $file), 'composeoptions');
     }
 
     public function mailmerge_action(): void
@@ -205,6 +226,8 @@ class mailmerge extends \rcube_plugin
             "_separator" => ['filter' => FILTER_CALLBACK, 'options' => [$this, "filter_callback_separator"]],
             "_enclosure" => ['filter' => FILTER_CALLBACK, 'options' => [$this, "filter_callback_enclosure"]],
             "_folder" => ['filter' => FILTER_CALLBACK, 'options' => [$this, "filter_callback_folder"]],
+            "_encoding" => ['filter' => FILTER_CALLBACK, 'options' => [$this, "filter_callback_encoding"]],
+            "_behavior" => ['filter' => FILTER_CALLBACK, 'options' => [$this, "filter_callback_behavior"]],
         ], true);
         
         $this->log->debug($input, $_REQUEST, $_FILES);
@@ -214,14 +237,15 @@ class mailmerge extends \rcube_plugin
         $csv_data = [];
         // Read CSV
         if (($handle = fopen($_FILES['csv']['tmp_name'], "r")) !== FALSE) {
-            $bom = fread($handle, 3); // Read first 3 bytes
-            // Compare with UTF-8 BOM bytes (0xEF, 0xBB, 0xBF)
-            if($bom !== "\xEF\xBB\xBF") {
-                fseek($handle, 0);
-            }
-
-            while (($data = fgetcsv($handle, null, $input["_separator"], $input["_enclosure"])) !== FALSE) {
-                $csv_data[] = $data;
+            $first = true;
+            while (($line = fgets($handle)) !== FALSE) {
+                $line = @mb_convert_encoding($line, 'UTF-8', $input['_encoding']);
+                // Compare with UTF-8 BOM bytes (0xEF, 0xBB, 0xBF)
+                if ($first && str_starts_with($line, "\xEF\xBB\xBF")) {
+                    $line = substr($line, 3);
+                }
+                $csv_data[] = str_getcsv($line, $input["_separator"], $input["_enclosure"]);
+                $first = false;
             }
             fclose($handle);
         }
@@ -678,5 +702,16 @@ class mailmerge extends \rcube_plugin
         $drafts = array_key_exists("drafts", $special_folders) ? $special_folders["drafts"] : "Drafts";
 
         return in_array($folder, $folders) ? $folder : $drafts;
+    }
+
+    private function filter_callback_encoding(string $value): ?string
+    {
+        return in_array($value, mb_list_encodings()) ? $value : "UTF-8";
+
+    }
+
+    private function filter_callback_behavior(string $value): ?string
+    {
+        return in_array($value, ["all", "any", "to", "empty"]) ? $value : "all";
     }
 }

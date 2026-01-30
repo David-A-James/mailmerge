@@ -46,6 +46,8 @@ function mailmerge() {
     formData.append("_separator", $("#mailmergesep").val())
     formData.append("_enclosure",  $("#mailmergeencl").val())
     formData.append("_folder",  $("#mailmergefolder").val())
+    formData.append("_encoding",  $("#mailmergefenc").val())
+    formData.append("_behavior",  $("#mailmergebehav").val())
 
     let files = document.querySelector("#mailmergefile").files;
     if(files.length !== 0) {
