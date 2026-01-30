@@ -58,6 +58,8 @@ class mailmerge extends \rcube_plugin
             return;
         }
 
+        $this->add_texts("localization", true);
+
         $this->register_action('plugin.mailmerge', [$this, 'mailmerge_action']);
         $this->register_action('plugin.mailmerge.get-folders', [$this, 'get_folders']);
         $this->register_action('plugin.mailmerge.send-unsent', [$this, 'send_unsent']);
@@ -79,7 +81,7 @@ class mailmerge extends \rcube_plugin
                 $prefs = $this->rc->user->get_prefs();
                 $blocks = $param["blocks"];
                 $blocks["advanced"]["options"]["plugin.mailmerge"] = [
-                    'title' => "Enable Mailmerge in Compose view",
+                    'title' => $this->gettext("enable_in_compose_view"),
                     'content' => (new \html_checkbox(["id" => __("enabled"), "value" => "1", "name" => "_".__("enabled")]))
                         ->show($prefs[__("enabled")] ?? "0"),
                 ];
@@ -118,9 +120,8 @@ class mailmerge extends \rcube_plugin
                 }
 
                 if ($param['id'] === 'listcontrols') {
-                    //<a href="#select" class="select disabled" data-popup="listselect-menu" data-toggle-button="list-toggle-button" title="<roundcube:label name="select" />"><span class="inner"><roundcube:label name="select" /></span></a>
                     $param['content'] = html::a(["href" => "#sendunsent", "id" => "mailmerge_sendunsent",
-                        "class" => "sendunsent send disabled" . ($under_drafts ? "" : " hidden"), "title" => "Send Unsent"],
+                        "class" => "sendunsent send disabled" . ($under_drafts ? "" : " hidden"), "title" => $this->gettext("send_drafts")],
                         html::span(["class" => "inner"], "Send Unsent"));
                 }
                 return $param;
@@ -130,22 +131,23 @@ class mailmerge extends \rcube_plugin
     }
 
     private function compose_ui() {
-        $header = \html::div('row', \html::div('col-12', \html::span("font-weight-bold", "Mail merge options")));
+        $header = \html::div('row', \html::div('col-12', \html::span("font-weight-bold", $this->gettext("mailmerge_options"))));
 
         // Separator
         $sselect = new html_select(["id" => "mailmergesep"]);
-        $sselect->add([", (Comma)", "; (Semicolon)", "| (Pipe)", "Tab"], [",", ";", "|", "tab"]);
+        $sselect->add([$this->gettext("comma"), $this->gettext("semicolon"),
+            $this->gettext("pipe"), $this->gettext("tab")], [",", ";", "|", "tab"]);
         $separator = \html::div("form-group row",
-            \html::label(['for' => 'mailmergesep', 'class' => 'col-form-label col-6'], rcube::Q("Separator")) .
+            \html::label(['for' => 'mailmergesep', 'class' => 'col-form-label col-6'], rcube::Q($this->gettext("separator"))) .
             \html::div('col-6', $sselect->show()));
 
 
         // Enclosure
         $eselect = new html_select(["id" => "mailmergeencl"]);
-        $eselect->add(["\" (Double Quotes)", "' (Single Quote)"], ["\"", "'"]);
+        $eselect->add([$this->gettext("double_quotes"), $this->gettext("single_quotes")], ["\"", "'"]);
 
         $enclosed = html::div('form-group row',
-            html::label(['for' => 'mailmergeencl', 'class' => 'col-form-label col-6'], rcube::Q("Field Enclosure"))
+            html::label(['for' => 'mailmergeencl', 'class' => 'col-form-label col-6'], rcube::Q($this->gettext("field_enclosure")))
             . html::div('form-check col-6',
                 $eselect->show()
             )
@@ -155,7 +157,7 @@ class mailmerge extends \rcube_plugin
         $fencselect = new html_select(["id" => "mailmergefenc"]);
         $fencselect->add(mb_list_encodings());
         $encoding = html::div('form-group row',
-            html::label(['for' => 'mailmergefenc', 'class' => 'col-form-label col-6'], rcube::Q("File Encoding"))
+            html::label(['for' => 'mailmergefenc', 'class' => 'col-form-label col-6'], rcube::Q($this->gettext("file_encoding")))
             . html::div('form-check col-6',
                 $fencselect->show(["UTF-8"])
             )
@@ -163,9 +165,9 @@ class mailmerge extends \rcube_plugin
 
         // Behaviour
         $bselect = new html_select(["id" => "mailmergebehav"]);
-        $bselect->add(["Generate All", "Generate only with at least one Recipient (To, CC or Bcc)", "Generate only with To", "Skip on any empty recipient placeholder"], ["all", "any", "to", "empty"]);
+        $bselect->add([$this->gettext("generate_all"), $this->gettext("generate_rcpt"), $this->gettext("generate_to"), $this->gettext("generate_non_empty")], ["all", "any", "to", "empty"]);
         $behavior = html::div('form-group row',
-            html::label(['for' => 'mailmergebehav', 'class' => 'col-form-label col-6'], rcube::Q("Generation Behavior"))
+            html::label(['for' => 'mailmergebehav', 'class' => 'col-form-label col-6'], rcube::Q($this->gettext("generation_behavior")))
             . html::div('form-check col-6',
                 $bselect->show(["all"])
             )
@@ -186,13 +188,13 @@ class mailmerge extends \rcube_plugin
                 'aria-owns' => 'mailmerge',
                 'aria-haspopup' => 'false',
                 'aria-expanded' => 'false',
-            ]))->show(rcube::Q('Mailmerge')))
+            ]))->show(rcube::Q($this->gettext("mailmerge"))))
         );
 
         $fselect = new html_select(["id" => "mailmergefolder"]);
 
         $folders = html::div('form-group row',
-            html::label(['for' => 'mailmergefolder', 'class' => 'col-form-label col-6'], rcube::Q("Save to Folder"))
+            html::label(['for' => 'mailmergefolder', 'class' => 'col-form-label col-6'], rcube::Q($this->gettext("save_to_folder")))
             . html::div('form-check col-6',
                 $fselect->show(["id" => "mailmergefolder", "class" => "custom-select form-control pretty-select"])
             )
@@ -564,7 +566,7 @@ class mailmerge extends \rcube_plugin
             unset($SENDMAIL, $MESSAGE, $part);
         }
 
-        $this->rc->output->show_message("sent $success messages. $fail failed", $fail === 0 ? "confirmation" : "notice");
+        $this->rc->output->show_message($this->gettext(["name" => "sent_messages", "vars" => ["success" => $success, "fail" => $fail]]), $fail === 0 ? "confirmation" : "notice");
         $this->rc->output->command("refresh");
 
 //        $this->rc->storage->se

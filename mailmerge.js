@@ -53,7 +53,7 @@ function mailmerge() {
     if(files.length !== 0) {
         formData.append("csv", files[0], "data.csv")
     } else {
-        rcmail.show_popup_dialog("No CSV File was selected!", "Error");
+        rcmail.show_popup_dialog(rcmail.gettext("no_csv_selected", "mailmerge"), rcmail.gettext("errortitle"));
         return
     }
 
