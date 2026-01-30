@@ -55,3 +55,6 @@ $labels["save_to_folder"] = "Save to folder";
 $labels["sent_messages"] = "sent \$success messages. \$fail failed";
 
 $labels["no_csv_selected"] = "No CSV File was selected!";
+$labels["no_message_selected"] = "No message was selected!";
+
+$labels["not_from_global_search"] = "Can't send drafts from global search. Please limit to folder only.";

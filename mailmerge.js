@@ -88,7 +88,7 @@ rcmail.addEventListener('init', function(evt) {
         rcmail.env.compose_commands.push("plugin.mailmerge")
         rcmail.http_get("plugin.mailmerge.get-folders")
     } else {
-        document.querySelector("#mailmerge_sendunsent").addEventListener("click", function (){
+        document.querySelector("#mailmerge_sendunsent")?.addEventListener("click", function (){
             console.log(rcmail.env.mailmerge_currentfolder);
             const lock = rcmail.set_busy(true, 'loading');
             rcmail.http_post("plugin.mailmerge.send-unsent",
@@ -96,7 +96,7 @@ rcmail.addEventListener('init', function(evt) {
                 lock)
         });
 
-        document.querySelector("#mailmerge_sendselected").addEventListener("click", function () {
+        document.querySelector("#mailmerge_sendselected")?.addEventListener("click", function () {
             console.log(rcmail.env.mailmerge_currentfolder, rcmail.message_list.get_selection());
             const lock = rcmail.set_busy(true, 'loading');
             rcmail.http_post("plugin.mailmerge.send-selected",
@@ -106,6 +106,11 @@ rcmail.addEventListener('init', function(evt) {
 
         rcmail.env.mailmerge_currentmbox = rcmail.env.mailbox;
         rcmail.triggerEvent("mailmerge_buttonstate");
+
+        rcmail.message_list?.addEventListener("select", function (params) {
+            console.log("select", params);
+            rcmail.triggerEvent("mailmerge_buttonstate");
+        });
     }
 });
 
@@ -146,17 +151,19 @@ rcmail.addEventListener("mailmerge_buttonstate", function() {
 
     console.log(path, rcmail.env.drafts_mailbox, rcmail.env.search_request, rcmail.env.search_scope);
 
-    document.querySelector("#mailmerge_sendunsent").classList.add("hidden", "disabled");
-    document.querySelector("#mailmerge_sendselected").classList.add("hidden", "disabled");
+    document.querySelector("#mailmerge_sendunsent")?.classList.add("hidden", "disabled");
+    document.querySelector("#mailmerge_sendselected")?.classList.add("hidden", "disabled");
 
     path.forEach((subpath, i) => {
         const mbox = path.slice(0, i + 1).join(rcmail.env.delimiter)
         if (mbox === rcmail.env.drafts_mailbox) {
-            document.querySelector("#mailmerge_sendunsent").classList.remove("hidden");
-            document.querySelector("#mailmerge_sendselected").classList.remove("hidden");
+            document.querySelector("#mailmerge_sendunsent")?.classList.remove("hidden");
+            document.querySelector("#mailmerge_sendselected")?.classList.remove("hidden");
             if (rcmail.env.search_request === null || rcmail.env.search_request === undefined || rcmail.env.search_scope === "base") {
-                document.querySelector("#mailmerge_sendunsent").classList.remove("disabled");
-                document.querySelector("#mailmerge_sendselected").classList.remove("disabled");
+                document.querySelector("#mailmerge_sendunsent")?.classList.remove("disabled");
+                if (rcmail.message_list?.get_selection().length > 0) {
+                    document.querySelector("#mailmerge_sendselected")?.classList.remove("disabled");
+                }
             }
         }
     })

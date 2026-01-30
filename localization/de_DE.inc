@@ -55,3 +55,6 @@ $labels["save_to_folder"] = "Speichere in Ordner";
 $labels["sent_messages"] = "\$success gesendet. \$fail fehlgeschlagen";
 
 $labels["no_csv_selected"] = "Es wurde keine CSV Datei ausgewählt!";
+$labels["no_message_selected"] = "Es wurde keine Nachrricht ausgewählt!";
+
+$labels["not_from_global_search"] = "Entwürfe aus globalem Suchergebiss können nicht versandt werden. Bitte beschränke die suche auf einen einzelnen Ordner.";

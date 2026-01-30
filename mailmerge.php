@@ -494,6 +494,17 @@ class mailmerge extends \rcube_plugin
         $this->log->debug(json_encode([$mbox, $search]));
         $this->log->debug(json_encode($this->rc->storage->get_search_set()));
 
+
+        if (!empty($this->rc->output->get_env("search_request")) && $this->rc->output->get_env("search_scope") !== "base") {
+            rcube::raise_error($this->gettext("not_from_global_search"), true, true);
+            return;
+        }
+
+        if ($use_selection && empty($selected)) {
+            rcube::raise_error($this->gettext("no_message_selected"), true, true);
+            return;
+        }
+
         $messages = array_filter($this->rc->storage->list_messages($mbox), fn($message) => !$use_selection || in_array($message->uid, $selected));
         $this->log->debug(json_encode($messages));
 
