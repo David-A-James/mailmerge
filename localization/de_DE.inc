@@ -24,6 +24,9 @@
 
 $labels["enable_in_compose_view"] = "Aktiviere Mailmerge in der Verfassenansicht";
 $labels["send_drafts"] = "Sende Entwürfe";
+$labels["send_drafts_tooltip"] = "Sende alle Entwürfe in aktullem Ordner oder Suchergebnis";
+$labels["send_selected"] = "Senden";
+$labels["send_selected_tooltip"] = "Sende alle ausgewählten Nachrichten";
 
 $labels["mailmerge_options"] = "Mailmerge Optionen";
 

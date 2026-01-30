@@ -90,9 +90,18 @@ rcmail.addEventListener('init', function(evt) {
     } else {
         document.querySelector("#mailmerge_sendunsent").addEventListener("click", function (){
             console.log(rcmail.env.mailmerge_currentfolder);
+            const lock = rcmail.set_busy(true, 'loading');
             rcmail.http_post("plugin.mailmerge.send-unsent",
                 { _mbox: rcmail.env.mailmerge_currentmbox, _search: rcmail.env.search_request},
-                rcmail.set_busy(true, 'loading'))
+                lock)
+        });
+
+        document.querySelector("#mailmerge_sendselected").addEventListener("click", function () {
+            console.log(rcmail.env.mailmerge_currentfolder, rcmail.message_list.get_selection());
+            const lock = rcmail.set_busy(true, 'loading');
+            rcmail.http_post("plugin.mailmerge.send-selected",
+                { _mbox: rcmail.env.mailmerge_currentmbox, _search: rcmail.env.search_request, _selected: rcmail.message_list.get_selection() },
+                lock)
         });
 
         rcmail.env.mailmerge_currentmbox = rcmail.env.mailbox;
@@ -138,13 +147,16 @@ rcmail.addEventListener("mailmerge_buttonstate", function() {
     console.log(path, rcmail.env.drafts_mailbox, rcmail.env.search_request, rcmail.env.search_scope);
 
     document.querySelector("#mailmerge_sendunsent").classList.add("hidden", "disabled");
+    document.querySelector("#mailmerge_sendselected").classList.add("hidden", "disabled");
 
     path.forEach((subpath, i) => {
         const mbox = path.slice(0, i + 1).join(rcmail.env.delimiter)
         if (mbox === rcmail.env.drafts_mailbox) {
             document.querySelector("#mailmerge_sendunsent").classList.remove("hidden");
+            document.querySelector("#mailmerge_sendselected").classList.remove("hidden");
             if (rcmail.env.search_request === null || rcmail.env.search_request === undefined || rcmail.env.search_scope === "base") {
                 document.querySelector("#mailmerge_sendunsent").classList.remove("disabled");
+                document.querySelector("#mailmerge_sendselected").classList.remove("disabled");
             }
         }
     })

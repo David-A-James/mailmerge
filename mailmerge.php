@@ -63,6 +63,7 @@ class mailmerge extends \rcube_plugin
         $this->register_action('plugin.mailmerge', [$this, 'mailmerge_action']);
         $this->register_action('plugin.mailmerge.get-folders', [$this, 'get_folders']);
         $this->register_action('plugin.mailmerge.send-unsent', [$this, 'send_unsent']);
+        $this->register_action('plugin.mailmerge.send-selected', [$this, 'send_selected']);
 
         $this->add_hook("ready", function ($param) {
 //            $this->log->debug('ready', $param);
@@ -121,8 +122,12 @@ class mailmerge extends \rcube_plugin
 
                 if ($param['id'] === 'listcontrols') {
                     $param['content'] = html::a(["href" => "#sendunsent", "id" => "mailmerge_sendunsent",
-                        "class" => "sendunsent send disabled" . ($under_drafts ? "" : " hidden"), "title" => $this->gettext("send_drafts")],
-                        html::span(["class" => "inner"], "Send Unsent"));
+                        "class" => "sendunsent send disabled" . ($under_drafts ? "" : " hidden"), "title" => $this->gettext("send_drafts_tooltip")],
+                        html::span(["class" => "inner"], $this->gettext("send_drafts")));
+                } elseif ($param['id'] === 'mailtoolbar') {
+                    $param['content'] = html::a(["href" => "#sendselected", "id" => "mailmerge_sendselected",
+                        "class" => "sendselected send disabled" . ($under_drafts ? "" : " hidden"), "title" => $this->gettext("send_selected_tooltip")],
+                        html::span(["class" => "inner"], $this->gettext("send_selected")));
                 }
                 return $param;
             }
@@ -130,7 +135,8 @@ class mailmerge extends \rcube_plugin
         });
     }
 
-    private function compose_ui() {
+    private function compose_ui(): void
+    {
         $header = \html::div('row', \html::div('col-12', \html::span("font-weight-bold", $this->gettext("mailmerge_options"))));
 
         // Separator
@@ -479,15 +485,16 @@ class mailmerge extends \rcube_plugin
         ]);
     }
 
-    public function send_unsent(array|null $param = null): void
+    public function send_unsent($use_selection = false): void
     {
         $mbox = rcube_utils::get_input_string('_mbox', rcube_utils::INPUT_POST);
         $search = rcube_utils::get_input_string('_search', rcube_utils::INPUT_POST);
+        $selected = rcube_utils::get_input_value('_selected', rcube_utils::INPUT_POST);
 
         $this->log->debug(json_encode([$mbox, $search]));
         $this->log->debug(json_encode($this->rc->storage->get_search_set()));
 
-        $messages = $this->rc->storage->list_messages($mbox);
+        $messages = array_filter($this->rc->storage->list_messages($mbox), fn($message) => !$use_selection || in_array($message->uid, $selected));
         $this->log->debug(json_encode($messages));
 
         $success = 0;
@@ -580,8 +587,11 @@ class mailmerge extends \rcube_plugin
 
         $this->rc->output->show_message($this->gettext(["name" => "sent_messages", "vars" => ["success" => $success, "fail" => $fail]]), $fail === 0 ? "confirmation" : "notice");
         $this->rc->output->command("refresh");
+    }
 
-//        $this->rc->storage->se
+    public function send_selected()
+    {
+        $this->send_unsent(true);
     }
 
     private function replace_vars(string|null $str, array $dict): string|null

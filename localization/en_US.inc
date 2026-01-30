@@ -24,6 +24,9 @@
 
 $labels["enable_in_compose_view"] = "Enable Mailmerge in Compose view";
 $labels["send_drafts"] = "Send Drafts";
+$labels["send_drafts_tooltip"] = "Send all Drafts in current folder or search result";
+$labels["send_selected"] = "Send";
+$labels["send_selected_tooltip"] = "Send currently selected messages";
 
 $labels["mailmerge_options"] = "Mailmerge Options";
 
