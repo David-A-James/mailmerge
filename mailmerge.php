@@ -21,7 +21,6 @@
 
 const MAILMERGE_PREFIX = "mailmerge";
 const MAILMERGE_LOG_FILE = "mailmerge";
-const MAILMERGE_VERSION = "0.1";
 
 use bennetcc\mailmerge\traits\DisableUser;
 use bennetcc\mailmerge\Log;
@@ -40,9 +39,6 @@ class mailmerge extends \rcube_plugin
 {
     private rcmail $rc;
     private Log $log;
-
-    private const MODE_HTML = 'html';
-    private const MODE_PLAIN = 'plain';
     
     use DisableUser, ResolveUsername;
 
@@ -66,7 +62,6 @@ class mailmerge extends \rcube_plugin
         $this->register_action('plugin.mailmerge.send-selected', [$this, 'send_selected']);
 
         $this->add_hook("ready", function ($param) {
-//            $this->log->debug('ready', $param);
             $prefs = $this->rc->user->get_prefs();
             if ($param['task'] == 'mail' && $prefs[__("enabled")]) {
                 $this->include_script('mailmerge.js');
@@ -102,37 +97,7 @@ class mailmerge extends \rcube_plugin
             return $param;
         });
 
-        $this->add_hook("template_container", function ($param) {
-            $folder = $this->rc->storage?->get_folder();
-            $delimiter = $this->rc->storage?->get_hierarchy_delimiter();
-            $prefs = $this->rc->user->get_prefs();
-
-            if ($prefs[__("enabled")] && $folder && $delimiter) {
-                $path = explode($delimiter, $folder);
-                $under_drafts = false;
-                foreach ($path as $i => $subpath) {
-                    $slice = array_slice($path, 0, $i + 1);
-                    $f = implode($delimiter, $slice);
-                    $folder_info = $this->rc->storage?->folder_info($f);
-                    if (in_array("\\Drafts", $folder_info["attributes"]) && $folder_info["special"]) {
-                        $under_drafts = true;
-                        break;
-                    }
-                }
-
-                if ($param['id'] === 'listcontrols') {
-                    $param['content'] = html::a(["href" => "#sendunsent", "id" => "mailmerge_sendunsent",
-                        "class" => "sendunsent send disabled" . ($under_drafts ? "" : " hidden"), "title" => $this->gettext("send_drafts_tooltip")],
-                        html::span(["class" => "inner"], $this->gettext("send_drafts")));
-                } elseif ($param['id'] === 'mailtoolbar') {
-                    $param['content'] = html::a(["href" => "#sendselected", "id" => "mailmerge_sendselected",
-                        "class" => "sendselected send disabled" . ($under_drafts ? "" : " hidden"), "title" => $this->gettext("send_selected_tooltip")],
-                        html::span(["class" => "inner"], $this->gettext("send_selected")));
-                }
-                return $param;
-            }
-            return null;
-        });
+        $this->add_hook("template_container", [$this, 'mail_buttons']);
     }
 
     private function compose_ui(): void
@@ -210,6 +175,39 @@ class mailmerge extends \rcube_plugin
             $header . $separator . $enclosed . $folders . $encoding . $behavior . $file), 'composeoptions');
     }
 
+    public function mail_buttons(array $param): ?array
+    {
+        $folder = $this->rc->storage?->get_folder();
+        $delimiter = $this->rc->storage?->get_hierarchy_delimiter();
+        $prefs = $this->rc->user->get_prefs();
+
+        if ($prefs[__("enabled")] && $folder && $delimiter) {
+            $path = explode($delimiter, $folder);
+            $under_drafts = false;
+            foreach ($path as $i => $subpath) {
+                $slice = array_slice($path, 0, $i + 1);
+                $f = implode($delimiter, $slice);
+                $folder_info = $this->rc->storage?->folder_info($f);
+                if (in_array("\\Drafts", $folder_info["attributes"]) && $folder_info["special"]) {
+                    $under_drafts = true;
+                    break;
+                }
+            }
+
+            if ($param['id'] === 'listcontrols') {
+                $param['content'] = html::a(["href" => "#sendunsent", "id" => "mailmerge_sendunsent",
+                    "class" => "sendunsent send disabled" . ($under_drafts ? "" : " hidden"), "title" => $this->gettext("send_drafts_tooltip")],
+                    html::span(["class" => "inner"], $this->gettext("send_drafts")));
+            } elseif ($param['id'] === 'mailtoolbar') {
+                $param['content'] = html::a(["href" => "#sendselected", "id" => "mailmerge_sendselected",
+                    "class" => "sendselected send disabled" . ($under_drafts ? "" : " hidden"), "title" => $this->gettext("send_selected_tooltip")],
+                    html::span(["class" => "inner"], $this->gettext("send_selected")));
+            }
+            return $param;
+        }
+        return null;
+    }
+
     public function mailmerge_action(): void
     {
 
@@ -275,8 +273,6 @@ class mailmerge extends \rcube_plugin
 
             $identity = $this->rc->user->get_identity($input["_from"]);
 
-            // $mime->headers(["X-Mozilla-Status" => "0800", "X-Mozilla-Status2" => "00000000"]);
-
             $from = $identity['name'] . ' <' . $identity['email'] . '>';
             $mime->setFrom($from);
 
@@ -287,8 +283,6 @@ class mailmerge extends \rcube_plugin
                 if (empty($to) && $input["_behavior"] == "empty") {
                     $skipped++;
                     continue(2);
-                } else {
-                    $this->log->debug($headers, empty($to) ? "true" : "to:".$to, $input["_behavior"]);
                 }
                 $mime->addTo($to);
             }
@@ -333,8 +327,6 @@ class mailmerge extends \rcube_plugin
                 ($input["_behavior"] == "to" && empty($headers["To"]))) {
                 $skipped++;
                 continue;
-            } else {
-                $this->log->debug($headers, empty($headers["To"]) ? "true" : "to:".$headers["To"], $input["_behavior"]);
             }
 
             if (count($input["_replyto"]) > 0) {
@@ -358,7 +350,7 @@ class mailmerge extends \rcube_plugin
             $message = $this->replace_vars($input["message"], $csv_line);
             $this->log->debug("end message");
 
-            if ($input["_mode"] == self::MODE_HTML) {
+            if ($input["_mode"] == "html") {
                 $mime->setHTMLBody($message);
                 $mime->setTXTBody($this->rc->html2text($message));
             } else {
@@ -390,7 +382,7 @@ class mailmerge extends \rcube_plugin
                 $is_file = !empty($attachment['path']);
                 $file = !empty($attachment['path']) ? $attachment['path'] : ($attachment['data'] ?? '');
 
-                if ($input["mode"] == "html") {
+                if ($input["_mode"] == "html") {
                     $dispurl = '/[\'"]\S+display-attachment\S+file=rcmfile' . preg_quote($attachment['id']) . '[\'"]/';
                     $message_body = $mime->getHTMLBody();
                     $is_inline = preg_match($dispurl, $message_body);
@@ -474,7 +466,7 @@ class mailmerge extends \rcube_plugin
             }
         }
 
-        $this->rc->output->show_message("successfully saved $ctr messages to {$input["_folder"]}. $skipped messages skipped", "confirmation", timeout: 20);
+        $this->rc->output->show_message($this->gettext(["name" => "saved_messages", "vars" => ["ctr" => $ctr, "folder" => $input["_folder"], "skipped" => $skipped]]), "confirmation", timeout: 20);
     }
 
     public function get_folders(): void
@@ -512,10 +504,6 @@ class mailmerge extends \rcube_plugin
         $fail = 0;
 
         @set_time_limit(360);
-
-        $this->register_handler("message_send_error", function ($param) {
-            $this->log->error("message_send_error: " . json_encode($param));
-        });
 
         foreach ($messages as $m) {
             $MESSAGE = new rcube_message($m->uid, $m->folder);
@@ -581,9 +569,33 @@ class mailmerge extends \rcube_plugin
 
             $mime_message = $SENDMAIL->create_message($headers,
                 $isHtml ? $MESSAGE->get_part_body($part->mime_id) : $MESSAGE->first_text_part(),
-                $isHtml, $MESSAGE->attachments);
+                $isHtml, array_map(fn($at) => ["name" => $at->filename, "size" => $at->size, "mimetype" => $at->mimetype], $MESSAGE->attachments));
 
-//            $this->log->debug($mime_message->getMessage());
+            foreach ($MESSAGE->inline_parts as $part) {
+                $mime_message->addHTMLImage(
+                    $MESSAGE->get_part_body($part->mime_id),
+                    $part->mimetype,
+                    $part->filename,
+                    false,
+                    $part->content_id);
+            }
+
+            foreach ($MESSAGE->attachments as $attachment) {
+                $folding = (int)$this->rc->config->get('mime_param_folding');
+                $mime_message->addAttachment(
+                    $MESSAGE->get_part_body($attachment->mime_id),
+                    $attachment->mimetype,
+                    $attachment->filename,
+                    false,
+                    $attachment->encoding,
+                    $attachment->disposition,
+                    $attachment->charset,
+                    '', '',
+                    $folding ? 'quoted-printable' : null,
+                    $folding == 2 ? 'quoted-printable' : null,
+                    '', RCUBE_CHARSET
+                );
+            }
 
             if ($SENDMAIL->deliver_message($mime_message, false)) {
                 $this->log->debug("delivered message");
@@ -733,7 +745,7 @@ class mailmerge extends \rcube_plugin
 
     private function filter_callback_mode(string $value): string
     {
-        return strtolower($value) == "html" ? self::MODE_HTML : self::MODE_PLAIN;
+        return strtolower($value) == "html" ? "html" : "plain";
     }
 
     private function filter_callback_separator(string $value): string

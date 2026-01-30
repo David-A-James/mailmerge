@@ -53,6 +53,8 @@ $labels["mailmerge"] = "Mailmerge";
 $labels["save_to_folder"] = "Speichere in Ordner";
 
 $labels["sent_messages"] = "\$success gesendet. \$fail fehlgeschlagen";
+$labels["saved_messages"] = "\$ctr Nachrrichten erfolgreich nach \$folder gespeichert. \$skipped übersprungen";
+
 
 $labels["no_csv_selected"] = "Es wurde keine CSV Datei ausgewählt!";
 $labels["no_message_selected"] = "Es wurde keine Nachrricht ausgewählt!";
