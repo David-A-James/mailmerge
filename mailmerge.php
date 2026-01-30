@@ -299,13 +299,25 @@ class mailmerge extends \rcube_plugin
 
             if (count($input["_cc"]) > 0) {
                 foreach ($input["_cc"] as $recipient) {
-                    $mime->addCc($this->replace_vars($recipient, $csv_line));
+                    $cc = $this->replace_vars($recipient, $csv_line);
+                    if (empty($cc) && $input["_behavior"] == "empty") {
+                        $skipped++;
+                        continue(2);
+                    } else {
+                        $mime->addCc($cc);
+                    }
                 }
             }
 
             if (count($input["_bcc"]) > 0) {
                 foreach ($input["_bcc"] as $recipient) {
-                    $mime->addBcc($this->replace_vars($recipient, $csv_line));
+                    $bcc = $this->replace_vars($recipient, $csv_line);
+                    if (empty($bcc) && $input["_behavior"] == "empty") {
+                        $skipped++;
+                        continue(2);
+                    } else {
+                        $mime->addBcc($bcc);
+                    }
                 }
             }
 
