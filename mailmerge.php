@@ -260,8 +260,9 @@ class mailmerge extends \rcube_plugin
         @set_time_limit(360);
 
         $ctr = 0;
+        $skipped = 0;
 
-        foreach ($dict as &$line) {
+        foreach ($dict as &$csv_line) {
             $mime = new Mail_mime(["html_charset" => "UTF-8", "text_charset" => "UTF-8", "head_charset" => "UTF-8", "text_encoding" => "7bit"]);
 
             $identity = $this->rc->user->get_identity($input["_from"]);
@@ -271,10 +272,17 @@ class mailmerge extends \rcube_plugin
             $from = $identity['name'] . ' <' . $identity['email'] . '>';
             $mime->setFrom($from);
 
-            $mime->setSubject($this->replace_vars($input["_subject"], $line));
+            $mime->setSubject($this->replace_vars($input["_subject"], $csv_line));
 
             foreach ($input["_to"] as $recipient) {
-                $mime->addTo($this->replace_vars($recipient, $line));
+                $to = $this->replace_vars($recipient, $csv_line);
+                if (empty($to) && $input["_behavior"] == "empty") {
+                    $skipped++;
+                    continue(2);
+                } else {
+                    $this->log->debug($headers, empty($to) ? "true" : "to:".$to, $input["_behavior"]);
+                }
+                $mime->addTo($to);
             }
 
             $mime->headers([
@@ -289,19 +297,29 @@ class mailmerge extends \rcube_plugin
 
             if (count($input["_cc"]) > 0) {
                 foreach ($input["_cc"] as $recipient) {
-                    $mime->addCc($this->replace_vars($recipient, $line));
+                    $mime->addCc($this->replace_vars($recipient, $csv_line));
                 }
             }
 
             if (count($input["_bcc"]) > 0) {
                 foreach ($input["_bcc"] as $recipient) {
-                    $mime->addBcc($this->replace_vars($recipient, $line));
+                    $mime->addBcc($this->replace_vars($recipient, $csv_line));
                 }
             }
 
+            // ["all", "any", "to", "empty"]
+            $headers = $mime->headers();
+            if (($input["_behavior"] == "any" && empty($headers["To"]) && empty($headers["Cc"]) && empty($headers["Bcc"])) ||
+                ($input["_behavior"] == "to" && empty($headers["To"]))) {
+                $skipped++;
+                continue;
+            } else {
+                $this->log->debug($headers, empty($headers["To"]) ? "true" : "to:".$headers["To"], $input["_behavior"]);
+            }
+
             if (count($input["_replyto"]) > 0) {
-                $rto = array_map(function ($rr) use ($line) {
-                    $this->replace_vars($rr, $line);
+                $rto = array_map(function ($rr) use ($csv_line) {
+                    $this->replace_vars($rr, $csv_line);
                 }, $input["_replyto"]);
 
                 $mime->headers([
@@ -311,13 +329,13 @@ class mailmerge extends \rcube_plugin
             }
 
             if (count($input["_followupto"]) > 0) {
-                $mime->headers(["Mail-Followup-To" => array_map(function ($rr) use ($line) {
-                    $this->replace_vars($rr, $line);
+                $mime->headers(["Mail-Followup-To" => array_map(function ($rr) use ($csv_line) {
+                    $this->replace_vars($rr, $csv_line);
                 }, $input["_followupto"])]);
             }
 
             $this->log->debug("begin message");
-            $message = $this->replace_vars($input["message"], $line);
+            $message = $this->replace_vars($input["message"], $csv_line);
             $this->log->debug("end message");
 
             if ($input["_mode"] == self::MODE_HTML) {
@@ -436,7 +454,7 @@ class mailmerge extends \rcube_plugin
             }
         }
 
-        $this->rc->output->show_message("successfully saved $ctr messages to {$input["_folder"]}", "confirmation");
+        $this->rc->output->show_message("successfully saved $ctr messages to {$input["_folder"]}. $skipped messages skipped", "confirmation", timeout: 20);
     }
 
     public function get_folders(): void
