@@ -565,6 +565,7 @@ class mailmerge extends \rcube_plugin
         }
 
         $this->rc->output->show_message("sent $success messages. $fail failed", $fail === 0 ? "confirmation" : "notice");
+        $this->rc->output->command("refresh");
 
 //        $this->rc->storage->se
     }
